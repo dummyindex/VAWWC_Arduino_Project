@@ -7,7 +7,7 @@ int EN34 = 8;
 int a3 = 3;
 int a4 = 9;
 #define EPS (1000)
-const double ratio=(1/(15000.0));
+const double ratio=(1/(15000.0)*1900/360);
 unsigned int velocity = 150;//0 and 255 for velocity
 
 void (*last_command) (void) = NULL ;
@@ -24,6 +24,7 @@ void setup_Car() {
 }
 
 void stopping() {
+  
   last_command = NULL;
   digitalWrite(EN12, LOW);
   digitalWrite(a1, HIGH);
@@ -91,35 +92,56 @@ void decelerate(){
 
 void turn_certain_degree(unsigned short direction, unsigned int degree) {
   velocity = 100; //set velocity, or maybe not precise enough.
-  Serial.print("direction:");Serial.println(direction);
-  Serial.print("degree: "); Serial.println(degree);
-  Serial.print("ratio:"); Serial.println(ratio);
+  //Serial.print("direction:");Serial.println(direction);
+  //Serial.print("degree: "); Serial.println(degree);
+  //Serial.print("ratio:"); Serial.println(ratio);
   double theta = 0.0; 
+  
+  void (*rotate) (void);  
   if (direction==1)
-    rotateleft();
+    rotate = rotateleft;
   else 
   if (direction==2)
-    rotateright();
-  unsigned int looptime = millis();
+    rotate = rotateright;
+  else
+    return;
+  rotate();
+  //unsigned int looptime = millis();
   int wx;
+  long lasttime=millis();
+  long time;
   while(1){
-    looptime = millis();
+    delay(5);
+    setup_temperature();
+    //looptime = millis();
     Wire.beginTransmission(MPU_addr);
     Wire.write(0x43);
     Wire.endTransmission(false);
-    Wire.requestFrom(0x68,2,true);
+    Wire.requestFrom(0x68,6,true);
     
-    wx = (Wire.read()<<8)|Wire.read();
+    double wx = (Wire.read()<<8)|Wire.read();
+    double wy = (Wire.read()<<8)|Wire.read();
+    double wz = (Wire.read()<<8)|Wire.read();
+    time=millis();
+    double w = wx*wx + wy*wy + wz*wz ;
+    w = sqrt(w); // in deg/sec
     Wire.endTransmission(true);
-    theta += abs(wx) < EPS ? 0: ratio*abs(wx);
-    Serial.println(theta);
+    //theta += w < EPS ? 0: ratio*w;
+    theta += w < EPS ? 0: (float)(time-lasttime)*w/1000.0/131;
+    velocity = degree-theta <= 25 ? 50 : velocity;
+    rotate();
+    lasttime=time;
+    //Serial.print("w="); Serial.println(w);
+    //Serial.print("theta=");Serial.println(theta);
     if (theta >= degree) {
       break;
     }
     //while(millis()-looptime < 10);
   }
-  Serial.println("turning end");
+  //Serial.println("turning end");
+  velocity = 100;
   stopping();
+  
 }
 
 #endif

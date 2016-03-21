@@ -48,6 +48,11 @@ void execute(){
   if (command == 8){
     decelerate();
   }
+  else
+  if (command == 9){
+    turn_certain_degree(1,180);
+  }
+    
 }
 void endless_readResponse(){
   HAS_RESULT = false;
